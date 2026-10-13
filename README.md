@@ -2,24 +2,26 @@
 
 File Structure:
 
-my-multi-agent-project/
-└── application/                  
-│   ├── main.py           
-│   ├── state.py          # State schema the graph
-│   ├── agents/
-│   │   ├── routing_agent.py 
-│   │   ├── planner_agent.py 
-│   │   ├── chat_agent.py 
-│   │   ├── flight_agent.py 
-│   │   ├── hotel_agent.py 
-│   │   └── activities_agent.py     
-│   ├── tools/          
-│   │   └── custom_tools.py
-├── .gitignore            # still need to create
-├── langgraph.json        # LangGraph configs
-├── README.md           
-├── data/                 # Future -- use for persisting state data
-├── tests/                # Future -- store testing scripts & files
+```text
+TrekAI-Agentic-Travel-Planner/
+├── README.md
+├── langgraph.json
+├── requirements.txt
+└── application/
+	├── api_tools.md
+	├── main.py
+	├── state.py
+	├── agents/
+	│   ├── activities_agent.py
+	│   ├── chat_agent.py
+	│   ├── flight_agent.py
+	│   ├── hotel_agent.py
+	│   ├── hotel_agent2.py
+	│   ├── planner_agent.py
+	│   └── routing_agent.py
+	└── tools/
+		└── tools.py
+```
 
 
 
