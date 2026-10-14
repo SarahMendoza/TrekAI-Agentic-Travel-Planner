@@ -10,6 +10,8 @@ WorkflowStatus = Literal[
 	"complete",
 ]
 
+ALL_TARGETS = ["flights", "hotels", "activities"]
+
 
 class Message(TypedDict):
 	role: Literal["system", "user", "assistant"]
