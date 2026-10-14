@@ -11,6 +11,15 @@ from application.agents.planner_agent import planner_agent
 from application.agents.routing_agent import routing_agent
 from application.state import ALL_TARGETS, PlannerState
 
+# preserved code from Zion's main.py
+# from application.agents.chat_agent import collect_trip_preferences
+# from application.agents.routing_agent import handoff_to_subagents
+
+# trip_request = collect_trip_preferences()
+
+# handoff_to_subagents(trip_request)
+
+
 
 def after_chat_condition(state: PlannerState) -> Literal["routing_agent", END]:
     if state.get("status") == "complete":
@@ -54,3 +63,5 @@ if __name__ == "__main__":
         print("Saved trekai_graph.png")
     else:
         print(graph.invoke({}))
+
+
