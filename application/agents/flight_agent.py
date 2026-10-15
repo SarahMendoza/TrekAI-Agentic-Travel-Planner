@@ -25,6 +25,7 @@ def research_flight_options(destination, departure_city, travel_dates, num_trave
     # Call Flight API to research flight options based on the provided preferences
     print("Researching flight options with the following preferences:")
     flight_options = []
+    
     return flight_options
 
 

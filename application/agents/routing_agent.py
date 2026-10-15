@@ -2,6 +2,7 @@
 from application.agents.flight_agent import get_flight_preferences
 
 
+
 def handoff_to_subagents(trip_request):
     # Placeholder for the logic to hand off the trip_request to subagents
     print("Handoff to subagents with trip request:", trip_request)
