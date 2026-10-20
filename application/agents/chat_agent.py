@@ -7,7 +7,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_ollama import ChatOllama
 
-
+from state import UserPreferences, PlannerState
 
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
@@ -15,17 +15,8 @@ from pydantic import BaseModel, Field
 from typing import Literal
 import json
 
-class UserInput(BaseModel):
-    destination: str | None
-    departure_city: str | None
-    travel_dates: str | None
-    num_travelers: int | None
-    budget: float | None
-    currency: str | None
-    budget_scope: Literal["total", "per_person"] | None
-    interests: list[str]
-    flight_preferences: str | None
-    hotel_preferences: str | None
+
+preferences = UserPreferences()
 
 prompt = ChatPromptTemplate.from_messages([
     ("system", 
@@ -59,14 +50,12 @@ Conversation rules:
 extraction_prompt = ChatPromptTemplate.from_messages([
     ("system",
      "You extract trip preferences from a conversation transcript. "
-     "Return every schema field. Use null for unknown values and [] "
-     "for unknown interests. Extract only traveler-provided or "
-     "traveler-confirmed facts. Apply the traveler's latest corrections. "
+     "Return every schema field. Omit unknown scalar fields. Use empty lists for unknown activity_types, hotel_preferences, and flight_preferences."
+     "Extract only traveler-provided or traveler-confirmed facts. Apply the traveler's latest corrections. "
      "Assistant questions and suggestions are not traveler facts."),
     ("human",
-     "Extract the preferences from this transcript:\n{transcript}\n\n"
-     "Return a JSON object matching this schema:\n{schema}"),
-]).partial(schema=json.dumps(UserInput.model_json_schema()))
+     "Extract the preferences from this transcript:\n{transcript}\n\n")
+])
 
 
 chat = ChatOllama(
@@ -77,7 +66,7 @@ chat = ChatOllama(
 chain = prompt | chat | StrOutputParser()
 
 extraction_chain = extraction_prompt | chat.with_structured_output(
-    UserInput,
+    UserPreferences,
     method="json_schema",
     include_raw=True,
 )
@@ -120,27 +109,28 @@ def collect_trip_preferences():
         preferences = extracted["parsed"]
 
         required_fields = [
-            "destination",
-            "departure_city",
-            "travel_dates",
-            "num_travelers",
-            "budget",
-            "currency",
-            "budget_scope",
+            "origin_city",
+            "destination_city",
+            "start_date",
+            "end_date",
+            "travelers",
+            "budget_total",
+            "activity_types",
+            "hotel_preferences",
+            "flight_preferences",
         ]
 
         missing_fields = [
             field
             for field in required_fields
-            if getattr(preferences, field) is None
-            or getattr(preferences, field) == ""
+            if preferences.get(field) is None
+            or preferences.get(field) == ""
         ]
-
         status = "collecting" if missing_fields else "awaiting_confirmation"
 
         if status == "awaiting_confirmation":
             print("Trip details collected. Please confirm the following:")
-            print(json.dumps(preferences.model_dump(), indent=2))
+            print(json.dumps(preferences, indent=2))            
             confirmation = input("Confirm? (yes/no): ").strip()
 
             if confirmation.lower() not in {"yes", "y"}:
@@ -148,10 +138,8 @@ def collect_trip_preferences():
                 continue
             
             status = "ready"
-            global trip_request
-            trip_request = preferences.model_dump()
             print("Trip confirmed and ready for planning.")
-            return trip_request
+            return preferences
 
         print("Missing fields:", missing_fields)
         print("Status:", status)
