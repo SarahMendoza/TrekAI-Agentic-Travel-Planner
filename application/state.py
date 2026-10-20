@@ -1,4 +1,4 @@
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 SearchTarget = Literal["flight", "hotel", "activities"]
 WorkflowStatus = Literal[
@@ -45,6 +45,7 @@ class FlightOption(TypedDict):
 	stops: int
 	summary: str
 	booking_hint: str
+	departure_token: NotRequired[str] 
 
 
 class HotelOption(TypedDict):
@@ -79,6 +80,7 @@ class PlannerState(TypedDict, total=False):
 	activities_task: SearchTask
 	pending_research: list[SearchTarget]
 	flights: list[FlightOption]
+	return_flights: list[FlightOption]
 	hotels: list[HotelOption]
 	activities: list[ActivityOption]
 	itinerary_markdown: str
