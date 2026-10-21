@@ -49,12 +49,19 @@ class FlightOption(TypedDict):
 
 
 class HotelOption(TypedDict):
+	id: str
 	name: str
+	description: str
+	price_nightly: float
 	price_total: float
-	neighborhood: str
 	amenities: list[str]
-	summary: str
-
+	link: str
+	check_in_time: str
+	check_out_time: str
+	hotel_class: str
+	overall_rating: str
+	reviews: str
+	
 
 class ActivityOption(TypedDict):
 	name: str
