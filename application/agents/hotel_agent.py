@@ -74,7 +74,17 @@ def research_new_hotels(runtime: ToolRuntime[None, HotelState]) -> Command:
             value = hotel.get(k, f"No {k} field available.")
             print(str(k), " : ", value)
 
+        description = hotel.get("description")
         nightly = hotel.get("rate_per_night", {}).get("extracted_lowest")
+        if (
+            not isinstance(description, str)
+            or not description.strip()
+            or isinstance(nightly, bool)
+            or not isinstance(nightly, (int, float))
+            or not math.isfinite(nightly)
+        ):
+            continue
+
         total = hotel.get("total_rate", {}).get("extracted_lowest")
         for label, price in (("nightly", nightly), ("total", total)):
             if price is not None and (
@@ -84,15 +94,10 @@ def research_new_hotels(runtime: ToolRuntime[None, HotelState]) -> Command:
                 or price < 0
             ):
                 raise ValueError(f"Invalid {label} price for hotel {hotel.get('name')!r}.")
-        if nightly is None and total is None:
-            raise ValueError(f"No numeric price available for hotel {hotel.get('name')!r}.")
 
-        description = hotel.get("description") or "No description provided."
         if total is None:
             total = nightly * nights
             description += " Whole-stay price is estimated from the nightly rate; taxes and fees may vary."
-        if nightly is None:
-            nightly = total / nights
 
         new_hotel_option: HotelOption = {
             "id": str(rand_id),
