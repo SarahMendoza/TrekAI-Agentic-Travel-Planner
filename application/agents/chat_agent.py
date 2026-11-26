@@ -14,6 +14,8 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from pydantic import BaseModel, Field
 from typing import Literal
 import json
+import re
+from datetime import datetime
 
 
 preferences = UserPreferences()
@@ -75,6 +77,18 @@ history = []
 
 global trip_request
 
+def format_trip_date(value: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError("Travel dates must be strings.")
+    value = re.sub(r"\b(\d{1,2})(?:st|nd|rd|th)\b", r"\1", value.strip(), flags=re.IGNORECASE)
+    for date_format in ("%Y-%m-%d", "%B %d, %Y", "%b %d, %Y"):
+        try:
+            return datetime.strptime(value, date_format).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    raise ValueError(f"Invalid or unsupported date: {value!r}. Please use YYYY-MM-DD.")
+
+
 def collect_trip_preferences():
     while True:
         user_message = input("You: ")
@@ -107,6 +121,14 @@ def collect_trip_preferences():
             continue
 
         preferences = extracted["parsed"]
+
+        try:
+            for field in ("start_date", "end_date"):
+                if preferences.get(field) not in (None, ""):
+                    preferences[field] = format_trip_date(preferences[field])
+        except ValueError as error:
+            print(f"Date error ({field}): {error}")
+            continue
 
         required_fields = [
             "origin_city",

@@ -1,0 +1,31 @@
+{
+  "reasoning": "Budget $4,000: AA nonstop $2,000 leaves $2,000. Hotel Le Marais $210/night x 3 = $630...",
+  "options_chosen": {
+    "flight": "flight-aa-dfw-cdg-1",
+    "hotel": "hotel-le-marais-boutique",
+    "activities": ["act-louvre", "act-eiffel-tower", "act-du-pain-et-des-idees"]
+  },
+  "daily_schedule": [
+    {
+      "day": 1,
+      "date": "2026-12-02",
+      "events": [
+        {"time": "02:00", "type": "flight",   "ref_id": "flight-aa-dfw-cdg-1", "note": "Arrive CDG (outbound)"},
+        {"time": "03:30", "type": "hotel",    "ref_id": "hotel-le-marais-boutique", "note": "Check in"},
+        {"time": "14:00", "type": "activity", "ref_id": "act-du-pain-et-des-idees", "note": "Light arrival day"}
+      ],
+      "overnight": "hotel-le-marais-boutique"
+    },
+    {
+      "day": 3,
+      "date": "2026-12-04",
+      "events": [
+        {"time": "11:00", "type": "hotel",  "ref_id": "hotel-le-marais-boutique", "note": "Check out"},
+        {"time": "14:00", "type": "flight", "ref_id": "flight-aa-dfw-cdg-1", "note": "Depart CDG (return)"}
+      ],
+      "overnight": null
+    }
+  ],
+  "costs": {"flight": 2000, "hotel": 630, "activities": 108, "total": 2738, "budget": 4000, "remaining": 1262},
+  "summary": "A 3-day Paris trip built around art and pastries, with a nonstop flight and a central hotel in Le Marais."
+}
