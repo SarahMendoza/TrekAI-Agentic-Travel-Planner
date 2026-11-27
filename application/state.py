@@ -2,7 +2,8 @@ from typing import Literal, NotRequired, TypedDict
 
 SearchTarget = Literal["flight", "hotel", "activities"]
 WorkflowStatus = Literal[
-	"preferences_collected",
+	"collecting_preferences",
+	"awaiting_preferences_confirmation",
 	"research_routing_complete",
 	"itinerary_ready",
 	"awaiting_user_approval",

@@ -27,10 +27,10 @@ Collect these essentials:
 - Departure city or airport
 - Travel dates, or approximate duration and date flexibility
 - Number of travelers, including children if relevant
-- Budget and currency, and whether it is total or per person
+- Budget and currency
 
 Also ask about interests, preferred pace, lodging or flight preferences,
-and dietary or accessibility needs when relevant. These are optional.
+and dietary or accessibility needs when relevant. 
 
 Conversation rules:
 - Ask one concise question at a time, prioritizing the most important
@@ -74,77 +74,100 @@ history = []
 
 
 global trip_request
+REQUIRED_FIELDS = (
+    "origin_city",
+    "destination_city",
+    "start_date",
+    "end_date",
+    "travelers",
+    "budget_total",
+)
 
-def collect_trip_preferences():
-    while True:
-        user_message = input("You: ")
 
-        if user_message.lower().strip() in {"quit", "exit"}:
-            break
+def chat_agent(state: PlannerState) -> dict:
+    messages = state.get("messages", [])
 
-        result = chain.invoke({
-            "history": history,
-            "input": user_message,
-        })
+    if not messages or messages[-1]["role"] != "user":
+        raise ValueError("chat_agent expects the latest message to be from the user")
 
-        print(f"TrekAI: {result}")
+    user_text = messages[-1]["content"].strip()
+    status = state.get("status")
 
-        history.extend([
-            HumanMessage(content=user_message),
-            AIMessage(content=result),
-        ])
+    # The previous turn asked the user to confirm the extracted preferences.
+    if status == "awaiting_preferences_confirmation":
+        if user_text.lower() in {"yes", "y"}:
+            reply = "Trip details confirmed. I'll start planning."
+            return {
+                "messages": messages + [
+                    {"role": "assistant", "content": reply}
+                ],
+                "status": "preferences_collected",
+            }
 
-        transcript = "\n".join(
-            f"{message.type}: {message.content}"
-            for message in history
+        if user_text.lower() in {"no", "n"}:
+            reply = "What would you like to change?"
+            return {
+                "messages": messages + [
+                    {"role": "assistant", "content": reply}
+                ],
+                "status": "collecting_preferences",
+            }
+        # Otherwise, treat this message as a correction and extract again.
+
+    # Extract from user messages so assistant suggestions cannot become facts.
+    transcript = "\n".join(
+        message["content"]
+        for message in messages
+        if message["role"] == "user"
+    )
+
+    extracted = extraction_chain.invoke({"transcript": transcript})
+    preferences = extracted["parsed"]
+
+    if preferences is None:
+        reply = "I had trouble reading those details. Could you clarify?"
+        return {
+            "messages": messages + [
+                {"role": "assistant", "content": reply}
+            ],
+            "status": "collecting_preferences",
+        }
+
+    missing = [
+        field for field in REQUIRED_FIELDS
+        if preferences.get(field) in (None, "")
+    ]
+
+    if not missing:
+        reply = (
+            f"Please confirm: travel from {preferences['origin_city']} "
+            f"to {preferences['destination_city']} from "
+            f"{preferences['start_date']} to {preferences['end_date']}, "
+            f"for {preferences['travelers']} traveler(s), with a total "
+            f"budget of {preferences['budget_total']}. Is that correct?"
         )
-
-        extracted = extraction_chain.invoke({"transcript": transcript})
-
-
-        if extracted["parsed"] is None:
-            print("Parsing error:", extracted["parsing_error"])
-            continue
-
-        preferences = extracted["parsed"]
-
-        required_fields = [
-            "origin_city",
-            "destination_city",
-            "start_date",
-            "end_date",
-            "travelers",
-            "budget_total",
-            "activity_types",
-            "hotel_preferences",
-            "flight_preferences",
+        new_status = "awaiting_preferences_confirmation"
+    else:
+        history = [
+            HumanMessage(content=message["content"])
+            if message["role"] == "user"
+            else AIMessage(content=message["content"])
+            for message in messages[:-1]
+            if message["role"] in {"user", "assistant"}
         ]
+        reply = chain.invoke({
+            "history": history,
+            "input": user_text,
+        })
+        new_status = "collecting_preferences"
 
-        missing_fields = [
-            field
-            for field in required_fields
-            if preferences.get(field) is None
-            or preferences.get(field) == ""
-        ]
-        status = "collecting" if missing_fields else "awaiting_confirmation"
-
-        if status == "awaiting_confirmation":
-            print("Trip details collected. Please confirm the following:")
-            print(json.dumps(preferences, indent=2))            
-            confirmation = input("Confirm? (yes/no): ").strip()
-
-            if confirmation.lower() not in {"yes", "y"}:
-                print("Trip details not confirmed. Please provide corrections.")
-                continue
-            
-            status = "ready"
-            print("Trip confirmed and ready for planning.")
-            return preferences
-
-        print("Missing fields:", missing_fields)
-        print("Status:", status)
-
-
+    return {
+        "messages": messages + [
+            {"role": "assistant", "content": reply}
+        ],
+        "user_preferences": preferences,
+        "status": new_status,
+    }
 def show_itinerary(itinerary):
     print("\n--- Travel Itinerary ---")
     print(itinerary)

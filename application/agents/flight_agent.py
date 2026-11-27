@@ -1,3 +1,5 @@
+import re
+
 from langchain.tools import tool
 from langchain_ollama import ChatOllama
 from state import FlightOption, PlannerState
@@ -19,7 +21,7 @@ from langchain_openai import ChatOpenAI
 from langgraph.types import Command
 from pydantic import BaseModel, Field
 
-from state import UserPreferences
+from state import UserPreferences, PlannerState
 load_dotenv()  
 
 flight_api_key = os.getenv("FLIGHT_API_KEY")
@@ -48,10 +50,18 @@ from datetime import datetime
 def format_date(value: str | None) -> str:
     if not value:
         raise ValueError("A date is required for round-trip searches.")
+    
+    cleaned = re.sub(
+        r"\b(\d{1,2})(?:st|nd|rd|th)\b",
+        r"\1",
+        value.strip(),
+        flags=re.IGNORECASE,
+    )
+
 
     for date_format in ("%Y-%m-%d", "%B %d, %Y"):
         try:
-            return datetime.strptime(value.strip(), date_format).strftime(
+            return datetime.strptime(cleaned, date_format).strftime(
                 "%Y-%m-%d"
             )
         except ValueError:
