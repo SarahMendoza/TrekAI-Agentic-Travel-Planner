@@ -1,5 +1,6 @@
 
 from agents.flight_agent import recieve_flight_preferences
+from agents.hotel_agent import hotel_agent
 
 from state import ApprovalState, PlannerState
 
@@ -58,7 +59,7 @@ def handoff_to_subagents(trip_request):
     #
 
     flight_options = recieve_flight_preferences(trip_request)
-    print("Flight options received from flight agent:", flight_options)
+    print("\n\nFlight options received from flight agent:", flight_options)
 
     # hotel_preferences = {
     #     "destination": trip_request.get("destination"),
@@ -73,9 +74,15 @@ def handoff_to_subagents(trip_request):
 
 
      # Placeholder for the logic to hand off hotel preferences to the hotel agent
-    # get_hotel_preferences(**hotel_preferences)
+    #get_hotel_preferences(**hotel_preferences)
 
-    return {"flights": flight_options}
+
+    hotel_options = hotel_agent(trip_request)
+    print("\n\nHotel options received from flight agent:", hotel_options)
+
+    return {"flights": flight_options, "hotels": hotel_options}
+    #return { "hotels": hotel_options}
+    # return { "flights": flight_options}
 
 
 
