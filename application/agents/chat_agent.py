@@ -17,9 +17,6 @@ import json
 import re
 from datetime import datetime
 
-
-preferences = UserPreferences()
-
 prompt = ChatPromptTemplate.from_messages([
     ("system", 
     """Your goal is to gather enough accurate information to start planning a trip.
@@ -60,11 +57,8 @@ extraction_prompt = ChatPromptTemplate.from_messages([
 ])
 
 
-chat = ChatOllama(
-    model="llama3.2:3b",
-    temperature=0,
-)
 
+chat = ChatOpenAI(temperature=0, model="gpt-5.4-mini")
 chain = prompt | chat | StrOutputParser()
 
 extraction_chain = extraction_prompt | chat.with_structured_output(

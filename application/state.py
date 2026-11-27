@@ -19,7 +19,7 @@ class Message(TypedDict):
 	content: str
 
 
-class UserPreferences(TypedDict, total=False):
+class UserPreferences(TypedDict):
 	origin_city: str
 	destination_city: str
 	start_date: str
@@ -46,8 +46,16 @@ class FlightOption(TypedDict):
 	stops: int
 	summary: str
 	booking_hint: str
-	departure_token: NotRequired[str] 
+	departure_token: NotRequired[str]
 
+class ReturnFlightOption(TypedDict):
+	airline: str
+	price: float
+	departure_airport: str
+	arrival_airport: str
+	stops: int
+	summary: str
+	booking_hint: str
 
 class HotelOption(TypedDict):
 	id: str
@@ -78,7 +86,7 @@ class ApprovalState(TypedDict, total=False):
 	activities_approved: bool
 
 
-class PlannerState(TypedDict, total=False):
+class PlannerState(TypedDict):
 	messages: list[Message]
 	user_preferences: UserPreferences
 	approvals: ApprovalState
@@ -88,7 +96,7 @@ class PlannerState(TypedDict, total=False):
 	activities_task: SearchTask
 	pending_research: list[SearchTarget]
 	flights: list[FlightOption]
-	return_flights: list[FlightOption]
+	return_flights: list[ReturnFlightOption]
 	hotels: list[HotelOption]
 	activities: list[ActivityOption]
 	itinerary_markdown: str
