@@ -1,8 +1,9 @@
 import re
+from typing import NotRequired
 
 from langchain.tools import tool
 from langchain_ollama import ChatOllama
-from state import FlightOption, PlannerState
+from state import FlightOption, PlannerState, ReturnFlightOption
 from langchain_core.prompts import ChatPromptTemplate
 import os
 from dotenv import load_dotenv
@@ -24,13 +25,13 @@ from pydantic import BaseModel, Field
 from state import UserPreferences, PlannerState
 load_dotenv()  
 
-flight_api_key = os.getenv("FLIGHT_API_KEY")
+flight_api_key = os.getenv("SERPAPI_API_KEY")
 
 class FlightState(AgentState):
     user_preferences: UserPreferences
     flights: list[FlightOption]
-    return_flights: list[FlightOption]
-    selected_outbound_index: int
+    return_flights: list[ReturnFlightOption]
+    selected_outbound_index: NotRequired[int]
 
 class FlightParams(BaseModel):
     destination: str
@@ -40,10 +41,7 @@ class FlightParams(BaseModel):
     num_travelers: int = Field(ge=1)
 
 
-chat = ChatOllama(
-    model="llama3.2:3b",
-    temperature=0,
-)
+chat = ChatOpenAI(temperature=0, model="gpt-5.4-mini")
 
 from datetime import datetime
 
@@ -105,8 +103,8 @@ def convert_preferences_to_flight_params(
     print("End date:", end_date)
 
     return FlightParams(
-        departure_city=airports.departure_city,
-        destination=airports.destination,
+        departure_city=airports["origin_city"],
+        destination=airports["destination_city"],
         start_date=start_date,
         end_date=end_date,
         num_travelers=user_preferences["travelers"],
@@ -189,6 +187,7 @@ def search_flights(
     return Command(
         update={
             "flights": flight_options,
+            "return_flights": [],
             "selected_outbound_index": 0,
             "messages": [
                 ToolMessage(
@@ -199,35 +198,90 @@ def search_flights(
         }
     )
 
-# @tool
-# def search_return_flights(
-#     departure_city: str,
-#     destination: str,
-#     start_date: str,
-#     num_travelers: int,
-#     end_date: str,
-#     outbound_index: int,
-#     runtime: ToolRuntime
-# ) -> Command:
-#     """Find return choices for an outbound option stored in state."""
-#     outbound = runtime.state["flights"][outbound_index]
-#     departure_token = outbound["departure_token"]
+@tool
+def search_return_flights(
+    departure_city: str,
+    destination: str,
+    start_date: str,
+    num_travelers: int,
+    end_date: str,
+    outbound_index: int,
+    runtime: ToolRuntime
+) -> Command:
+    """Find return choices for an outbound option stored in state."""
+    outbound = runtime.state["flights"][outbound_index]
+    departure_token = outbound.get("departure_token")
+    if not departure_token:
+        raise ValueError("Selected outbound flight has no departure token.")
 
-#     client = serpapi.Client(api_key=flight_api_key)
-#     results = client.search({
-#         "engine": "google_flights",
-#         "departure_id": departure_city,
-#         "arrival_id": destination,
-#         "currency": "USD",
-#         "type": "1",
-#         "outbound_date": start_date,
-#         "return_date": end_date,
-#         "adults": num_travelers,
-#         "departure_token": departure_token,
-#         })
+    client = serpapi.Client(api_key=flight_api_key)
+    results = client.search({
+        "engine": "google_flights",
+        "departure_id": departure_city,
+        "arrival_id": destination,
+        "currency": "USD",
+        "type": "1",
+        "outbound_date": start_date,
+        "return_date": end_date,
+        "adults": num_travelers,
+        "departure_token": departure_token,
+        })
+    if results.get("error"):
+            raise ValueError(results["error"])
+    
+    raw_options = (
+            results.get("best_flights", [])
+            + results.get("other_flights", [])
+    )
+    
+    return_flight_options: list[ReturnFlightOption] = []
+    
+    for option in raw_options:
+            segments = option.get("flights", [])
+            price = option.get("price")
+    
+            if not segments or price is None:
+                continue
+    
+            first_segment = segments[0]
+            last_segment = segments[-1]
+    
+            airlines = list(dict.fromkeys(
+                segment["airline"] for segment in segments
+            ))
+    
+            flight: ReturnFlightOption = {
+                "airline": ", ".join(airlines),
+                "price": float(price),
+                "departure_airport": first_segment["departure_airport"]["id"],
+                "arrival_airport": last_segment["arrival_airport"]["id"],
+                "stops": len(option.get("layovers", [])),
+                "summary": (
+                    f"Departs {first_segment['departure_airport']['time']}; "
+                    f"arrives {last_segment['arrival_airport']['time']}."
+                ),
+                "booking_hint": results.get("search_metadata", {}).get(
+                    "google_flights_url", ""
+                ),
+
+            }
+            return_flight_options.append(flight)
+    return Command(
+            update={
+                "return_flights": return_flight_options,
+                "selected_outbound_index": 0,
+                "messages": [
+                    ToolMessage(
+                        content=json.dumps(return_flight_options),
+                        tool_call_id=runtime.tool_call_id,
+                    )
+                ],
+            }
+        )
 
 
-tools = [search_flights]
+
+tools = [search_flights, search_return_flights]
 search_prompt = """
 You search for flights using the search flights tool. You must use the tools to find flight options.
 
@@ -241,35 +295,36 @@ Do not invent flights, prices, or availability.
 Do not book anything.
 """
 
-flight_agent = create_agent(
+search_flight_agent = create_agent(
     model=chat,
     tools=tools,
     system_prompt=search_prompt,
     state_schema=FlightState,
 )
 
-def recieve_flight_preferences(trip_request: dict):
-    preferences: UserPreferences = trip_request
+def flight_agent(state: PlannerState) -> dict:
+    preferences = state["user_preferences"]
     params = convert_preferences_to_flight_params(preferences)
-    print("Converted flight parameters:", params)
 
-    result = flight_agent.invoke({
+    task = state.get("flight_task", {})
+    instructions = task.get("instructions", "Research flight options.")
+
+    result = search_flight_agent.invoke({
         "user_preferences": preferences,
         "flights": [],
+        "return_flights": [],
         "messages": [{
             "role": "user",
             "content": (
-                f"Search flights using these parameters: "
-                f"{params.model_dump_json()}\n"
-                f"Traveler preferences: "
-                f"{preferences}"
+                f"{instructions}\n"
+                f"Search using these parameters: {params.model_dump_json()}\n"
+                f"Flight preferences: {preferences.get('flight_preferences', [])}"
             ),
         }],
     })
 
-    return result["flights"]
+    return {"flights": result.get("flights", [])}
 
 
     
-
 
